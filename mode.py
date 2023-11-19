@@ -1,4 +1,5 @@
 from operator import ge
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -137,8 +138,6 @@ def train(args):
             torch.save(discriminator.state_dict(), './model/SRGAN_discrim_%03d.pt'%fine_epoch)
 
 
-# In[ ]:
-
 def test(args):
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -208,8 +207,9 @@ def test_only(args):
             result.save('./result/res_%04d.png'%i)
 
 
-def get_hr_image(input_data, generator_path):
+def get_hr_image(input_data, generator_path='./pretrained_models/SRGAN.pt'):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    generator_path = os.path.join(os.path.dirname(__file__), generator_path)
 
     # Initialize the generator
     generator = Generator(img_feat=3, n_feats=64, kernel_size=3, num_block=16, scale=4)
@@ -225,14 +225,13 @@ def get_hr_image(input_data, generator_path):
         raise TypeError("Input data must be a numpy array.")
 
     input_tensor = input_tensor.to(device)
-    
+
     with torch.no_grad():
         # Generate high-resolution image
         hr_image_tensor, _ = generator(input_tensor)
-        
+
     # Process the output image to convert it to a NumPy array
     hr_image_tensor = hr_image_tensor.cpu().squeeze(0)
-    hr_image_tensor = (hr_image_tensor + 1.0) / 2.0  # Adjust if the image is normalized between -1 and 1
     hr_image_tensor = hr_image_tensor.clamp(0, 1)
     hr_image_np = hr_image_tensor.permute(1, 2, 0).numpy()
     hr_image_np = (hr_image_np * 255).astype(np.uint8)
