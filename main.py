@@ -1,4 +1,4 @@
-from mode import *
+from .mode import *
 import argparse
 
 

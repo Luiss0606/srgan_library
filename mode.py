@@ -1,12 +1,13 @@
+from operator import ge
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from losses import TVLoss, perceptual_loss
-from dataset import *
-from srgan_model import Generator, Discriminator
-from vgg19 import vgg19
+from .losses import TVLoss, perceptual_loss
+from .dataset import *
+from .srgan_model import Generator, Discriminator
+from .vgg19 import vgg19
 import numpy as np
 from PIL import Image
 from skimage.color import rgb2ycbcr
@@ -207,4 +208,28 @@ def test_only(args):
             result.save('./result/res_%04d.png'%i)
 
 
+def get_hr_image(lr_image_path, generator_path):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # Asume que ya tienes una clase Generator definida y que lr_image_path es la ruta a tu imagen de baja resolución
+    generator = Generator(img_feat=3, n_feats=64, kernel_size=3, num_block=16, scale=4)  # Asegúrate de que los parámetros coincidan con tu modelo
+    generator.load_state_dict(torch.load(generator_path))
+    generator = generator.to(device)
+    generator.eval()
+    
+    # Carga la imagen de baja resolución
+    lr_image = Image.open(lr_image_path)
+    lr_image = transforms.ToTensor()(lr_image).unsqueeze(0).to(device)
+    
+    with torch.no_grad():
+        # Genera la imagen de alta resolución
+        hr_image, _ = generator(lr_image)
+        
+    # Procesa la imagen de salida para convertirla en una imagen de PIL
+    hr_image = hr_image.cpu().squeeze(0)
+    hr_image = (hr_image + 1.0) / 2.0  # Desnormaliza la imagen si está normalizada entre -1 y 1
+    hr_image = hr_image.clamp(0, 1)
+    hr_image_pil = transforms.ToPILImage()(hr_image)
+    
+    return hr_image_pil
 
