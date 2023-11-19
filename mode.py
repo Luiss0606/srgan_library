@@ -208,28 +208,35 @@ def test_only(args):
             result.save('./result/res_%04d.png'%i)
 
 
-def get_hr_image(lr_image_path, generator_path):
+def get_hr_image(input_data, generator_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # Asume que ya tienes una clase Generator definida y que lr_image_path es la ruta a tu imagen de baja resolución
-    generator = Generator(img_feat=3, n_feats=64, kernel_size=3, num_block=16, scale=4)  # Asegúrate de que los parámetros coincidan con tu modelo
+
+    # Initialize the generator
+    generator = Generator(img_feat=3, n_feats=64, kernel_size=3, num_block=16, scale=4)
     generator.load_state_dict(torch.load(generator_path))
     generator = generator.to(device)
     generator.eval()
-    
-    # Carga la imagen de baja resolución
-    lr_image = Image.open(lr_image_path)
-    lr_image = transforms.ToTensor()(lr_image).unsqueeze(0).to(device)
+
+    # Convert NumPy array to PyTorch tensor
+    if isinstance(input_data, np.ndarray):
+        input_data = input_data.astype(np.float32) / 255.0  # Normalize to [0, 1]
+        input_tensor = torch.from_numpy(input_data).permute(2, 0, 1).unsqueeze(0)  # Convert to tensor and reshape to [1, C, H, W]
+    else:
+        raise TypeError("Input data must be a numpy array.")
+
+    input_tensor = input_tensor.to(device)
     
     with torch.no_grad():
-        # Genera la imagen de alta resolución
-        hr_image, _ = generator(lr_image)
+        # Generate high-resolution image
+        hr_image_tensor, _ = generator(input_tensor)
         
-    # Procesa la imagen de salida para convertirla en una imagen de PIL
-    hr_image = hr_image.cpu().squeeze(0)
-    hr_image = (hr_image + 1.0) / 2.0  # Desnormaliza la imagen si está normalizada entre -1 y 1
-    hr_image = hr_image.clamp(0, 1)
-    hr_image_pil = transforms.ToPILImage()(hr_image)
+    # Process the output image to convert it to a NumPy array
+    hr_image_tensor = hr_image_tensor.cpu().squeeze(0)
+    hr_image_tensor = (hr_image_tensor + 1.0) / 2.0  # Adjust if the image is normalized between -1 and 1
+    hr_image_tensor = hr_image_tensor.clamp(0, 1)
+    hr_image_np = hr_image_tensor.permute(1, 2, 0).numpy()
+    hr_image_np = (hr_image_np * 255).astype(np.uint8)
     
-    return hr_image_pil
+    return hr_image_np
+
 
